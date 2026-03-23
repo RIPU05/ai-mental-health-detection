@@ -1,0 +1,101 @@
+Metadata-Version: 2.4
+Name: ai-mental-health-detection
+Version: 0.1.0
+Summary: AI-based mental health detection system (text/audio emotion + prediction + chatbot + recommendations + Streamlit dashboard).
+Author: Your Name
+License: MIT
+Requires-Python: >=3.10
+Description-Content-Type: text/markdown
+Requires-Dist: numpy>=1.24
+Requires-Dist: pandas>=2.0
+Requires-Dist: scikit-learn>=1.3
+Requires-Dist: nltk>=3.8
+Requires-Dist: regex>=2023.12.25
+Requires-Dist: pydantic>=2.6
+Requires-Dist: PyYAML>=6.0.1
+Requires-Dist: streamlit>=1.31
+Requires-Dist: librosa>=0.10.1
+Requires-Dist: soundfile>=0.12.1
+Provides-Extra: dl
+Requires-Dist: torch>=2.2; extra == "dl"
+Requires-Dist: transformers>=4.39; extra == "dl"
+Provides-Extra: dev
+Requires-Dist: pytest>=8.0; extra == "dev"
+Requires-Dist: ruff>=0.3; extra == "dev"
+
+# AI Mental Health Detection
+
+Python project scaffold for an AI-based mental health detection system with:
+
+- Text preprocessing
+- Audio processing
+- Emotion detection
+- Mental health prediction
+- Chatbot
+- Recommendation system
+- Streamlit dashboard
+
+## Quick start
+
+Create an environment and install:
+
+```bash
+python -m venv .venv
+# Windows PowerShell:
+.venv\Scripts\Activate.ps1
+pip install -e .
+```
+
+Run the dashboard:
+
+```bash
+streamlit run streamlit_app.py
+```
+
+## Project structure
+
+```
+ai-mental-health-detection/
+  configs/
+    default.yaml
+  data/
+    raw/
+    processed/
+  models/
+  notebooks/
+  scripts/
+  src/
+    ai_mh_detection/
+      __init__.py
+      config.py
+      preprocessing/
+        __init__.py
+        text_preprocessor.py
+      audio/
+        __init__.py
+        audio_processor.py
+      emotion/
+        __init__.py
+        emotion_detector.py
+      prediction/
+        __init__.py
+        mental_health_predictor.py
+      chatbot/
+        __init__.py
+        chatbot.py
+      recommendation/
+        __init__.py
+        recommender.py
+      dashboard/
+        __init__.py
+        app.py
+      utils/
+        __init__.py
+        io.py
+  tests/
+```
+
+## Notes
+
+- The current implementations are **safe, minimal stubs** (rule-based placeholders) meant to be replaced with trained models.
+- Put trained artifacts (e.g., `.pkl`, `.pt`) in `models/` and load them inside `emotion/` and `prediction/`.

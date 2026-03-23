@@ -1,0 +1,14 @@
+app:
+  title: "AI Mental Health Detection"
+
+text:
+  language: "en"
+  lowercase: true
+  remove_punctuation: true
+
+audio:
+  target_sr: 16000
+  max_seconds: 30
+
+prediction:
+  labels: ["low_risk", "moderate_risk", "high_risk"]

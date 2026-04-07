@@ -145,13 +145,20 @@ def _normalize_emotion_label(emotion_pred: Any, *, processed_text: str | None = 
     return s
 
 
-def _local_rule_based_response(user_text: str, emotion_label: str, mental_pred: int) -> str:
+def _local_rule_based_response(
+    user_text: str,
+    emotion_label: str,
+    mental_pred: int,
+    chat_history: list[dict[str, str]] | None = None,
+) -> str:
     """
-    Local, no-API chatbot fallback with varied templates.
+    Local rule-based chatbot with rich, varied, context-aware responses.
+    Uses conversation history to avoid repetition and improve continuity.
     Always returns a non-empty supportive response.
     """
     fallback = (
-        "Thanks for sharing this. I’m here with you. What feels hardest right now, and what is one small step that might help in the next 10 minutes?"
+        "I'm here with you. What feels most present for you right now — "
+        "a thought, a feeling, or a situation? Take your time."
     )
 
     try:
@@ -159,102 +166,253 @@ def _local_rule_based_response(user_text: str, emotion_label: str, mental_pred: 
         text_norm = text.lower()
         emo = (emotion_label or "neutral").strip().lower()
         pred = int(mental_pred)
+        history = chat_history or []
 
-        # Infer a richer conversation state from emotion + content.
+        # Collect recent assistant replies to avoid repeating the same phrasing.
+        recent_bot_msgs = [
+            m["content"] for m in history[-6:] if m.get("role") == "assistant"
+        ]
+
+        # Infer conversation state from emotion + content keywords.
         if pred == 1:
             state = "depression"
-        elif "anxious" in emo or "panic" in emo or any(k in text_norm for k in ("anxious", "anxiety", "panic", "worried", "nervous")):
+        elif "anxious" in emo or "panic" in emo or any(
+            k in text_norm for k in ("anxious", "anxiety", "panic", "worried", "nervous", "dread")
+        ):
             state = "anxious"
-        elif "stress" in emo or any(k in text_norm for k in ("stressed", "overwhelmed", "deadline", "pressure", "burnout")):
+        elif "stress" in emo or any(
+            k in text_norm for k in ("stressed", "overwhelmed", "deadline", "pressure", "burnout", "exhausted")
+        ):
             state = "stress"
-        elif "positive" in emo or any(k in emo for k in ("happy", "joy", "relieved", "excited")):
+        elif "positive" in emo or any(k in emo for k in ("happy", "joy", "relieved", "excited", "grateful")):
             state = "positive"
-        elif "negative" in emo or any(k in emo for k in ("sad", "depressed", "hopeless")):
+        elif "negative" in emo or any(k in emo for k in ("sad", "depressed", "hopeless", "empty", "numb")):
             state = "negative"
         else:
             state = "neutral"
 
-        # Trigger detection for context-aware follow-ups.
-        trigger_sleep = any(k in text_norm for k in ("sleep", "insomnia", "awake", "tired", "exhausted"))
-        trigger_exam = any(k in text_norm for k in ("exam", "exams", "test", "study", "assignment"))
-        trigger_family = any(k in text_norm for k in ("family", "parents", "mother", "father", "home"))
-        trigger_lonely = any(k in text_norm for k in ("lonely", "loneliness", "alone", "isolated"))
-        trigger_overthinking = any(k in text_norm for k in ("overthinking", "overthink", "thinking too much", "can't stop thinking"))
-        trigger_future = any(k in text_norm for k in ("future", "career", "what if", "uncertain", "tomorrow"))
-        trigger_work = any(k in text_norm for k in ("work", "job", "deadline", "boss", "office"))
-        trigger_relationship = any(k in text_norm for k in ("friend", "partner", "relationship", "argument"))
+        # Topic triggers for specific action/follow-up selection.
+        trigger_sleep = any(k in text_norm for k in ("sleep", "insomnia", "awake", "tired", "rest", "fatigue"))
+        trigger_exam = any(k in text_norm for k in ("exam", "test", "study", "assignment", "grade", "college"))
+        trigger_family = any(k in text_norm for k in ("family", "parents", "mother", "father", "home", "sibling"))
+        trigger_lonely = any(k in text_norm for k in ("lonely", "loneliness", "alone", "isolated", "no one"))
+        trigger_overthinking = any(k in text_norm for k in ("overthinking", "overthink", "spiral", "racing thoughts"))
+        trigger_future = any(k in text_norm for k in ("future", "career", "what if", "uncertain", "tomorrow", "path"))
+        trigger_work = any(k in text_norm for k in ("work", "job", "deadline", "boss", "office", "project"))
+        trigger_relationship = any(k in text_norm for k in ("friend", "partner", "relationship", "argument", "breakup"))
+        trigger_body = any(k in text_norm for k in ("body", "chest", "breathing", "heart", "headache", "stomach"))
 
-        action_step = "Try one quick reset now: drink water, take 6 slow breaths, then reassess."
-        follow_up = "What would make the next hour feel 10% easier?"
+        # Default action + follow-up (randomised so they vary per turn).
+        action_step = random.choice([
+            "Take a slow breath right now — in for 4 counts, out for 6. Then reassess.",
+            "Drink a glass of water and step away for two minutes before continuing.",
+            "Write down one thing you're feeling in one sentence — just naming it helps.",
+            "Do a quick body scan: unclench your jaw, drop your shoulders, relax your hands.",
+        ])
+        follow_up = random.choice([
+            "What would make the next hour feel even slightly more manageable?",
+            "Is there one small thing that might help right now, even 5%?",
+            "What's the heaviest thing sitting with you at this moment?",
+            "What do you need most right now — to vent, think it through, or just be heard?",
+        ])
+
         if trigger_sleep:
-            action_step = "Tonight, try a 30-minute wind-down: low light, no phone, and slow breathing."
-            follow_up = "How has your sleep changed this week: trouble falling asleep, staying asleep, or waking too early?"
+            action_step = random.choice([
+                "Try a 20-minute wind-down tonight: dim lights, no phone, and slow breathing.",
+                "Set a gentle alarm 30 minutes before bed as a signal to start winding down.",
+                "Write out one worry before bed — offloading it from your head onto paper really helps.",
+            ])
+            follow_up = random.choice([
+                "Is it more trouble falling asleep, staying asleep, or waking too early?",
+                "How many nights this week has sleep felt off for you?",
+                "What's usually running through your mind when you can't sleep?",
+            ])
         elif trigger_exam:
-            action_step = "Pick one 15-minute study block on a single topic, then take a 3-minute break."
-            follow_up = "Which exam topic feels hardest right now, and what is one tiny step you can finish today?"
+            action_step = random.choice([
+                "Pick the single hardest topic and do just 15 focused minutes on it — then stop.",
+                "Write out what you already know about the topic. It's usually more than you think.",
+                "Set a 25-minute timer, work on one thing only, then take a 5-minute real break.",
+            ])
+            follow_up = random.choice([
+                "Which subject or topic feels most out of control right now?",
+                "Is the stress more about the content itself, the time pressure, or both?",
+                "What would 'good enough' preparation actually look like for you?",
+            ])
         elif trigger_family:
-            action_step = "Write one calm sentence about what you need, so you can communicate it clearly."
-            follow_up = "What part of the family situation is affecting you the most right now?"
+            action_step = random.choice([
+                "Write one sentence about what you actually need from this situation.",
+                "Give yourself permission to step away physically for 10 minutes.",
+                "Try to name the specific feeling — is it hurt, frustration, or disappointment?",
+            ])
+            follow_up = random.choice([
+                "What part of the family dynamic is weighing on you most right now?",
+                "How long has this particular tension been building?",
+                "Is there someone in the situation you feel even slightly understood by?",
+            ])
         elif trigger_lonely:
-            action_step = "Send one simple message to someone you trust, even: 'Can we talk later today?'"
-            follow_up = "When does loneliness feel strongest for you—morning, evening, or night?"
+            action_step = random.choice([
+                "Send one low-stakes message to someone — even just 'hey, thinking of you.'",
+                "Spend 10 minutes somewhere with other people around, even without interacting.",
+                "Write a few lines: what kind of connection are you missing most right now?",
+            ])
+            follow_up = random.choice([
+                "Is the loneliness more about missing specific people, or a general disconnection?",
+                "When was the last time you felt genuinely connected to someone?",
+                "Are there people around but it still feels lonely? That's worth exploring.",
+            ])
         elif trigger_overthinking:
-            action_step = "Try a 5-minute thought dump, then circle one thought you can act on right now."
-            follow_up = "What thought keeps looping the most?"
+            action_step = random.choice([
+                "Set a 5-minute timer and write every thought down — then close the notebook.",
+                "Pick the single most important thought and ask: can I act on this today, yes or no?",
+                "Name the spiral out loud, then redirect to one physical sensation right now.",
+            ])
+            follow_up = random.choice([
+                "What thought keeps looping back the most?",
+                "Is the overthinking focused on the past, the present, or the future?",
+                "What would you say to a close friend who was stuck in this same loop?",
+            ])
         elif trigger_future:
-            action_step = "List two things you can control today and one worry you will postpone until tomorrow."
-            follow_up = "What future worry feels heaviest, and what is one step you can take this week?"
+            action_step = random.choice([
+                "List two things within your control this week and one thing you'll let go of for now.",
+                "Ask yourself: what's the very next smallest step — not the whole path, just the next one.",
+                "Write the worry in one sentence, then write one thing you can do about it today.",
+            ])
+            follow_up = random.choice([
+                "What's the specific future scenario worrying you most right now?",
+                "Is this more about fear of failure, uncertainty, or something else entirely?",
+                "What would 'good enough' look like if perfect isn't the goal?",
+            ])
         elif trigger_relationship:
-            action_step = "Write one gentle boundary or support request you can send today."
-            follow_up = "What interaction triggered this feeling most recently?"
+            action_step = random.choice([
+                "Write one honest sentence about what you need from this relationship right now.",
+                "Give yourself space before responding — 24 hours can genuinely shift perspective.",
+                "Ask yourself: is what I'm feeling more about this person, or a pattern I've seen before?",
+            ])
+            follow_up = random.choice([
+                "What happened that triggered this feeling most recently?",
+                "Are you more hurt, angry, or confused — or a mix of all three?",
+                "What would resolution or relief actually look like in this situation?",
+            ])
         elif trigger_work:
-            action_step = "Pick one 10-minute task only, finish it, then pause before choosing the next step."
-            follow_up = "Is the pressure mainly workload, deadlines, or expectations?"
+            action_step = random.choice([
+                "Pick the single most important task and do only that for the next 15 minutes.",
+                "Write out what's actually on your plate — sometimes it's less scary when it's written down.",
+                "Block 10 minutes as a real break — step outside, don't check messages.",
+            ])
+            follow_up = random.choice([
+                "Is the pressure mainly about the volume, a specific deadline, or someone's expectations?",
+                "How long have you been running at this pace without a real break?",
+                "Is there anything on your list you could hand off, delay, or simplify?",
+            ])
+        elif trigger_body:
+            action_step = random.choice([
+                "Take three slow breaths: in through the nose, out through the mouth, longer exhale.",
+                "Relax your shoulders, unclench your jaw, and put both feet flat on the floor.",
+                "Step away from the screen for 5 minutes and move your body gently.",
+            ])
+            follow_up = random.choice([
+                "Where in your body are you carrying most of the tension right now?",
+                "Has your body been feeling this way for a while, or did something shift today?",
+                "Physical and emotional stress are tightly linked — what do you think your body is reacting to?",
+            ])
 
+        # Rich template banks per emotional state (5-7 variations, no rigid fixed structure).
         templates: dict[str, list[str]] = {
             "positive": [
-                "I’m glad there is some light here. What helped most today that you can repeat tomorrow?\n\n{action}\n\n{follow_up}",
-                "That sounds like a meaningful shift. Which part of your day made the biggest difference?\n\n{action}\n\n{follow_up}",
+                "That's genuinely good to hear. It's easy to rush past moments like this — what's actually behind the feeling?\n\n{action}\n\n{follow_up}",
+                "I notice things feel lighter right now. What made the difference today, even if it was small?\n\n{follow_up}",
+                "Really glad you're in a better headspace. These moments matter — what helped you get here?\n\n{action}\n\n{follow_up}",
+                "There's something to hold onto here. What do you want to remember about how this feels?\n\n{follow_up}",
+                "Positive moments are worth pausing on, not just pushing through. What's contributing to this that you can keep going?\n\n{action}\n\n{follow_up}",
+                "It's good to check in when things feel okay too — not just in hard moments. What's been going well?\n\n{follow_up}",
+                "That kind of shift is real. What helped create it — something you did, something external, or just time?\n\n{action}\n\n{follow_up}",
             ],
             "negative": [
-                "That sounds heavy, and I’m glad you said it out loud. What feels hardest right now: thoughts, body, or situation?\n\n{action}\n\n{follow_up}",
-                "I hear you. When this mood rises, what usually triggers it first?\n\n{action}\n\n{follow_up}",
+                "That sounds genuinely heavy. I'm glad you're putting it into words — that takes something. What feels hardest right now?\n\n{action}\n\n{follow_up}",
+                "I hear you. Low moods like this can make everything feel harder than it actually is. What's the main thing pulling you down today?\n\n{action}\n\n{follow_up}",
+                "It makes sense that you're feeling this way. You don't have to fix everything right now — just being here is enough.\n\n{action}\n\n{follow_up}",
+                "Sometimes naming the feeling is the first real step. What word fits best — sad, empty, tired, heavy, or something else?\n\n{follow_up}",
+                "I'm here and I'm listening. What's sitting with you most heavily right now?\n\n{action}\n\n{follow_up}",
+                "Low periods don't last forever, even when they feel like they do. What's one thing that has helped even a little in the past?\n\n{action}\n\n{follow_up}",
+                "You came here and shared this — that matters more than it might feel like right now. Is this a specific event, or more of a general heaviness?\n\n{action}\n\n{follow_up}",
             ],
             "anxious": [
-                "That sounds very tense. Is your anxiety showing up more in your thoughts, your chest, or your breathing?\n\nTry this now: inhale 4s, exhale 6s, for 6 rounds.\n\n{follow_up}",
-                "I can hear the pressure in this. What is one worry you can postpone for 30 minutes while you focus on one concrete task?\n\n{action}\n\n{follow_up}",
+                "That level of tension is real and it makes sense your system is on edge. Let's slow this down a little.\n\nTry this right now: breathe in for 4 counts, hold for 1, out for 6. Twice.\n\n{follow_up}",
+                "Anxiety has a way of narrowing everything down to the worst possibility. What's the actual fear underneath this?\n\n{action}\n\n{follow_up}",
+                "When anxiety peaks, the body responds before the mind can catch up. Are you feeling it more in your thoughts, your chest, or your gut?\n\n{action}\n\n{follow_up}",
+                "That kind of worry is exhausting to carry. What's the one specific thing you're most anxious about right now?\n\n{action}\n\n{follow_up}",
+                "Let's try to separate what you can control from what you can't. What part of this situation is actually within your hands?\n\n{action}\n\n{follow_up}",
+                "Anxiety often focuses on future scenarios. What's the worst-case thought looping in your head — and how likely is it really?\n\n{follow_up}",
+                "You're not alone in this. Anxiety amplifies threats — what do you know to be true about this situation right now?\n\n{action}\n\n{follow_up}",
             ],
             "stress": [
-                "You’re carrying a lot. What is one thing you can drop, delay, or simplify today?\n\n{action}\n\n{follow_up}",
-                "That sounds draining. If we break this down, what is the smallest next step that still moves you forward?\n\n{action}\n\n{follow_up}",
+                "That's a lot to carry at once. Stress stacks up quietly until something tips. What's weighing on you most?\n\n{action}\n\n{follow_up}",
+                "When everything feels urgent, nothing gets done well. Let's figure out one thing — just one — you can actually tackle today.\n\n{action}\n\n{follow_up}",
+                "I can hear how stretched you are. Is the pressure coming from outside, from yourself, or both?\n\n{action}\n\n{follow_up}",
+                "Burnout creeps in when we keep pushing without pausing. When did you last have a real break — not a distraction, an actual pause?\n\n{action}\n\n{follow_up}",
+                "Stress makes everything feel equally urgent. What genuinely matters most right now, if you strip away the noise?\n\n{action}\n\n{follow_up}",
+                "It sounds like you're running on empty. What's the smallest thing that would give you even 10 minutes of relief?\n\n{action}\n\n{follow_up}",
+                "You're dealing with a lot. Let's not try to fix it all — what's one thing you can set aside, even temporarily?\n\n{action}\n\n{follow_up}",
             ],
             "depression": [
-                "Thank you for sharing this. You don’t have to solve everything right now. What is one thing that would make this hour 10% easier?\n\n{action}\n\n{follow_up}\n\nIf you feel unsafe, contact local emergency or crisis support now.",
-                "I’m really glad you reached out. Are you feeling more numb, sad, or exhausted right now?\n\n{action}\n\n{follow_up}\n\nIf you feel at risk of self-harm, please seek immediate crisis support.",
+                "Thank you for sharing this with me. You don't have to be okay right now, and you don't have to solve everything at once. I'm here.\n\n{action}\n\n{follow_up}\n\n*If you ever feel unsafe, please reach out to a crisis line or emergency services.*",
+                "What you're feeling is real. Depression makes even small things feel impossibly heavy. What's one thing — tiny, manageable — that might help this hour?\n\n{action}\n\n{follow_up}\n\n*If thoughts of self-harm arise, please contact a professional or crisis support immediately.*",
+                "I really hear you. You reaching out matters, even if it doesn't feel that way. Are you feeling more numb, more sad, or more exhausted right now?\n\n{action}\n\n{follow_up}",
+                "Depression often tells us we're alone in this — that's the lie it tells. Is there one person you trust, even a little, you could reach out to today?\n\n{action}\n\n{follow_up}\n\n*Your wellbeing matters. Professional support can make a real difference.*",
+                "You don't have to explain yourself fully right now. What's one very small thing that has felt neutral or okay recently — even something tiny?\n\n{action}\n\n{follow_up}",
+                "Sometimes when we're in this place, the basics matter most: water, light, gentle movement. Have you eaten and had water today?\n\n{action}\n\n{follow_up}\n\n*If you're struggling significantly, please consider speaking with a mental health professional.*",
+                "I'm glad you're here and talking. Depression isolates — talking back to it, even like this, is a real step. What do you need most right now?\n\n{action}\n\n{follow_up}",
             ],
             "neutral": [
-                "Thanks for sharing. What feeling is strongest right now, even if it is mild?\n\n{action}\n\n{follow_up}",
-                "I’m here with you. What happened in the last hour that shifted your mood the most?\n\n{action}\n\n{follow_up}",
+                "Thanks for checking in — it doesn't have to be a crisis to be worth talking about. What's on your mind?\n\n{action}\n\n{follow_up}",
+                "Sometimes 'okay' is hiding something underneath. How are you actually doing, not just on the surface?\n\n{follow_up}",
+                "I'm here. What's the most prominent thing in your head right now, even if it feels small?\n\n{action}\n\n{follow_up}",
+                "Checking in regularly is one of the healthiest things you can do. What's shifted for you today, even slightly?\n\n{follow_up}",
+                "What's the feeling that's been most present for you lately — even if it's been in the background?\n\n{action}\n\n{follow_up}",
+                "You don't have to be in crisis to deserve support. What's something you've been carrying that you haven't talked about?\n\n{action}\n\n{follow_up}",
+                "Sometimes the most useful question is: what do I actually need right now — to vent, think something through, or just feel heard?\n\n{follow_up}",
             ],
         }
 
-        chosen = random.choice(templates.get(state, templates["neutral"]))
+        pool = templates.get(state, templates["neutral"])
 
-        if text:
-            snippet = text.replace("\n", " ")
-            if len(snippet) > 90:
-                snippet = snippet[:87] + "..."
-            prefix = f"You said: \"{snippet}\".\n\n"
-        else:
-            prefix = "Thanks for checking in.\n\n"
+        # Filter out responses too similar to recent bot messages (reduce repetition).
+        def _is_too_similar(candidate: str) -> bool:
+            candidate_words = set(candidate.lower().split())
+            for prev in recent_bot_msgs:
+                prev_words = set(prev.lower().split())
+                overlap = candidate_words & prev_words
+                threshold = max(8, 0.45 * min(len(candidate_words), len(prev_words)))
+                if len(overlap) > threshold:
+                    return True
+            return False
 
-        reply = prefix + chosen.format(action=action_step, follow_up=follow_up)
-        reply = reply.strip()
-        if not reply:
-            return fallback
-        return reply
+        fresh_pool = [t for t in pool if not _is_too_similar(t)]
+        chosen = random.choice(fresh_pool if fresh_pool else pool)
+
+        reply = chosen.format(action=action_step, follow_up=follow_up).strip()
+
+        # For follow-on messages (not the opening seed), optionally echo back a snippet
+        # of what the user said to make the response feel more conversational.
+        if text and len(history) > 1:
+            snippet = text.replace("\n", " ").strip()
+            if len(snippet) > 75:
+                snippet = snippet[:72] + "..."
+            ack_openers = [
+                f'"{snippet}" — ',
+                f"When you say that — ",
+                f"I hear you on that. ",
+                "",  # no ack sometimes feels most natural
+                "",
+            ]
+            ack = random.choice(ack_openers)
+            if ack and reply:
+                reply = ack + reply[0].lower() + reply[1:]
+
+        return reply if reply else fallback
     except Exception:
         return fallback
+
 
 
 def _api_chatbot_response(user_text: str, emotion_label: str, mental_pred: int) -> str:
@@ -312,28 +470,39 @@ def _api_chatbot_response(user_text: str, emotion_label: str, mental_pred: int) 
         return fallback
 
 
-def generate_chatbot_response(user_text: str, emotion_label: str, mental_pred: int) -> str:
+def generate_chatbot_response(
+    user_text: str,
+    emotion_label: str,
+    mental_pred: int,
+    chat_history: list[dict[str, str]] | None = None,
+) -> str:
     """
-    Hybrid chatbot:
-    - If API key is available, try API-generated response.
-    - Otherwise, (or on failure) use local rule-based response.
+    Hybrid chatbot entry point.
+    - Uses OpenAI API if OPENAI_API_KEY is set.
+    - Falls back to local rule-based responses with full template variation.
+    - Passes conversation history for context-aware, non-repetitive replies.
     Always returns a non-empty string.
     """
+    history = chat_history or []
     try:
         api_reply = _api_chatbot_response(user_text, emotion_label, mental_pred)
         if api_reply and api_reply.strip():
             return api_reply.strip()
-        local_reply = _local_rule_based_response(user_text, emotion_label, mental_pred)
-        return local_reply if local_reply.strip() else "I’m here with you. What feels most important to talk about right now?"
+        local_reply = _local_rule_based_response(user_text, emotion_label, mental_pred, history)
+        return local_reply if local_reply.strip() else "I'm here with you. What feels most important to talk about right now?"
     except Exception:
-        return "I’m here with you. What feels most important to talk about right now?"
+        return "I'm here with you. What feels most important to talk about right now?"
 
 
-def _chatbot_reply(emotion_label: str, mental_pred: int, user_text: str | None = None) -> str:
-    """
-    Compatibility wrapper used by existing dashboard flow.
-    """
-    return generate_chatbot_response(user_text or "", emotion_label, int(mental_pred))
+
+def _chatbot_reply(
+    emotion_label: str,
+    mental_pred: int,
+    user_text: str | None = None,
+    chat_history: list[dict[str, str]] | None = None,
+) -> str:
+    """Compatibility wrapper used by the dashboard flow."""
+    return generate_chatbot_response(user_text or "", emotion_label, int(mental_pred), chat_history)
 
 
 def main() -> None:
@@ -577,30 +746,78 @@ def main() -> None:
                 st.success("History cleared.")
 
     with tabs[2]:
-        st.subheader("Chatbot")
-        if not st.session_state.chat_messages:
-            st.caption("Run an analysis first to enable emotion-based support messages.")
+        # ── Context banner ──────────────────────────────────────────────────────
+        last_emotion = st.session_state.last_emotion
+        last_mental_pred = st.session_state.last_mental_pred
+        has_context = last_emotion is not None and last_mental_pred is not None
+
+        if has_context:
+            emotion_display = str(last_emotion).capitalize()
+            mental_display = "Depression detected" if last_mental_pred == 1 else "No depression detected"
+            ctx_col1, ctx_col2, ctx_col3 = st.columns([2, 2, 1])
+            with ctx_col1:
+                if "positive" in str(last_emotion).lower():
+                    st.success(f"Emotion: {emotion_display}")
+                elif any(k in str(last_emotion).lower() for k in ("negative", "anxious", "sad")):
+                    st.warning(f"Emotion: {emotion_display}")
+                else:
+                    st.info(f"Emotion: {emotion_display}")
+            with ctx_col2:
+                if last_mental_pred == 1:
+                    st.error(f"Status: {mental_display}")
+                else:
+                    st.success(f"Status: {mental_display}")
+            with ctx_col3:
+                if st.button("Clear chat", use_container_width=True):
+                    st.session_state.chat_messages = []
+                    st.rerun()
+        else:
+            st.info(
+                "Run an **analysis** first (Analyze tab) so the chatbot can respond based on "
+                "your detected emotion and mental health state. You can still chat below — "
+                "it will respond supportively using a neutral baseline."
+            )
+            _, clear_col = st.columns([4, 1])
+            with clear_col:
+                if st.button("Clear chat", use_container_width=True):
+                    st.session_state.chat_messages = []
+                    st.rerun()
 
         st.divider()
+
+        # ── Chat history display ────────────────────────────────────────────────
+        if not st.session_state.chat_messages:
+            st.caption("No messages yet. Say something below to start the conversation.")
+
         for msg in st.session_state.chat_messages:
             with st.chat_message(msg["role"]):
                 st.markdown(msg["content"])
 
-        user_chat = st.chat_input("Ask a supportive question (uses your last detected emotion)...")
+        # ── Chat input ──────────────────────────────────────────────────────────
+        placeholder = (
+            "Type a message... (responding based on your detected emotion)"
+            if has_context
+            else "Type a message to start talking..."
+        )
+        user_chat = st.chat_input(placeholder)
         if user_chat:
             st.session_state.chat_messages.append({"role": "user", "content": user_chat})
+            with st.chat_message("user"):
+                st.markdown(user_chat)
 
-            last_emotion = st.session_state.last_emotion
-            last_mental_pred = st.session_state.last_mental_pred
-            if last_emotion is None or last_mental_pred is None:
-                reply = "Please run an analysis first so I can respond based on the detected emotion."
-            else:
-                    reply = _chatbot_reply(str(last_emotion), int(last_mental_pred), user_text=user_chat)
+            emotion_for_reply = str(last_emotion) if has_context else "neutral"
+            mental_for_reply = int(last_mental_pred) if has_context else 0
+
+            reply = _chatbot_reply(
+                emotion_for_reply,
+                mental_for_reply,
+                user_text=user_chat,
+                chat_history=st.session_state.chat_messages,
+            )
 
             st.session_state.chat_messages.append({"role": "assistant", "content": reply})
             with st.chat_message("assistant"):
                 st.markdown(reply)
-
 
 if __name__ == "__main__":
     main()

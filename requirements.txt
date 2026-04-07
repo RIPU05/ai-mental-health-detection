@@ -14,3 +14,25 @@ soundfile>=0.12.1
 # Optional (deep learning / LLM)
 torch>=2.2
 transformers>=4.39
+librosa
+nltk
+numpy
+pandas
+pydantic
+pydub
+PyYAML
+regex
+requests
+scikit-learn
+soundfile
+SpeechRecognition
+streamlit
+nltk
+numpy
+pandas
+pydantic
+PyYAML
+regex
+requests
+scikit-learn
+streamlit

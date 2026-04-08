@@ -43,20 +43,21 @@ def _load_pickle(path: Path) -> Any:
 
 # ── Condition → display name mapping ──────────────────────────────────────────
 CONDITION_DISPLAY: dict[str, str] = {
-    "depression": "Depression",
-    "anxiety":    "Anxiety",
-    "anger":      "Anger / Distress",
-    "happy":      "Positive / Happy",
-    "normal":     "No Major Concern",
-    # Future conditions (no training data yet — add datasets to enable)
-    "stress":     "Stress",
-    "bipolar":    "Bipolar-related Signs",
-    "ptsd":       "PTSD-related Signs",
-    "ocd":        "OCD-related Signs",
+    "depression":           "Depression",
+    "anxiety":              "Anxiety",
+    "anger":                "Anger / Distress",
+    "happy":                "Positive / Happy",
+    "normal":               "No Major Concern",
+    "stress":               "Stress",
+    "bipolar":              "Bipolar-related Signs",
+    "suicidal":             "Suicidal Ideation",
+    "personality disorder": "Personality-related Distress",
+    "ptsd":                 "PTSD-related Signs",
+    "ocd":                  "OCD-related Signs",
 }
 
 # Conditions that map to a "concern" (used for chatbot/history compatibility)
-CONCERN_CONDITIONS: frozenset[str] = frozenset({"depression", "anxiety", "anger", "stress"})
+CONCERN_CONDITIONS: frozenset[str] = frozenset({"depression", "anxiety", "anger", "stress", "suicidal", "bipolar", "personality disorder"})
 
 
 def _condition_from_pred(raw: object) -> str:
@@ -113,6 +114,34 @@ def _get_recommendation(*, condition: str, emotion_label: str) -> str:
             "2. Release tension: unclench shoulders, relax hands, take 5 slow breaths.\n"
             "3. Simplify: pick ONE task to complete today — drop or delay everything else.\n\n"
             "If stress is ongoing, consider rest, delegation, or professional support."
+        )
+
+    if cond == "suicidal":
+        return (
+            "**This is serious — please reach out for support right now:**\n"
+            "1. Contact a crisis line: International Association for Suicide Prevention "
+            "lists resources at https://www.iasp.info/resources/Crisis_Centres/\n"
+            "2. Tell someone you trust — a friend, family member, or mental health professional.\n"
+            "3. Remove access to means if possible and stay in a safe environment.\n\n"
+            "You are not alone. Professional help is available and effective."
+        )
+
+    if cond == "bipolar":
+        return (
+            "**Bipolar-related signs detected — steady routines help most:**\n"
+            "1. Track your mood daily — a simple 1-10 scale reveals patterns.\n"
+            "2. Protect sleep: irregular sleep is a major trigger for mood episodes.\n"
+            "3. Speak with a psychiatrist if you are not already — medication management is often key.\n\n"
+            "Bipolar disorder is very treatable with the right professional support."
+        )
+
+    if cond == "personality disorder":
+        return (
+            "**Personality-related distress detected — grounding and support matter:**\n"
+            "1. Pause before reacting: take 3 slow breaths to create space between feeling and action.\n"
+            "2. Name the emotion without acting on it immediately — feelings pass.\n"
+            "3. Consider DBT-informed therapy if available — it is specifically effective here.\n\n"
+            "These patterns are not character flaws; they are learnable skills."
         )
 
     if cond == "happy":
@@ -745,7 +774,7 @@ def main() -> None:
 
             with results_col2:
                 st.markdown("#### Detected Condition")
-                concern_conditions_display = {"depression", "anxiety", "anger", "stress"}
+                concern_conditions_display = {"depression", "anxiety", "anger", "stress", "suicidal", "bipolar", "personality disorder"}
                 if condition in concern_conditions_display:
                     st.error(f"{mental_label}")
                 elif condition == "happy":
@@ -825,7 +854,7 @@ def main() -> None:
                 else:
                     st.info(f"Emotion: {emotion_display}")
             with ctx_col2:
-                concern_set = {"depression", "anxiety", "anger", "stress"}
+                concern_set = {"depression", "anxiety", "anger", "stress", "suicidal", "bipolar", "personality disorder"}
                 if last_condition in concern_set:
                     st.error(f"Condition: {condition_display}")
                 elif last_condition == "happy":

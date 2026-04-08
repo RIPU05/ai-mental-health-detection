@@ -1,0 +1,70 @@
+Work on my existing Streamlit AI mental health detection project.
+
+Important:
+- Do NOT rewrite the whole project
+- Only modify required parts
+- Keep current app structure, UI, chatbot, audio input, and mood history intact
+- Keep code modular and clean
+- Use my uploaded/local datasets for training
+- Make the training pipeline fit my current project
+
+My available dataset files are:
+- mental_health_combined_test.csv
+- mental_heath_feature_engineered.csv
+- mental_heath_unbanlanced.csv
+- stressed_anxious_cleaned.csv
+- Combined Data.csv
+
+Task:
+1. Inspect all these dataset files and detect:
+   - which file is best for training
+   - what columns are available
+   - which column should be used as text input
+   - which column should be used as label/target
+
+2. Build or update a training script for my project that:
+   - loads the best dataset(s)
+   - standardizes columns into:
+     - text
+     - label
+   - cleans and preprocesses the text
+   - handles missing values
+   - handles duplicate rows
+   - handles class imbalance if needed
+   - trains a mental health classification model suitable for my Streamlit app
+
+3. Training requirements:
+   - use TF-IDF for text features
+   - train a multi-class classifier if dataset supports multiple conditions
+   - otherwise keep backward compatibility with binary classification
+   - use a model compatible with my app
+   - save the trained model to:
+     models/mental_health_model.pkl
+
+4. If needed, also save any required label encoder or vectorizer in a way that matches my app safely.
+
+5. Evaluate the model and print:
+   - accuracy
+   - precision
+   - recall
+   - F1 score
+   - class distribution
+
+6. Update the app only if necessary so it can read the new trained model without breaking existing features.
+
+7. If multiple datasets can be combined, then:
+   - merge them carefully
+   - normalize label names
+   - explain which datasets were used and which were ignored
+
+8. If any file has bad structure, wrong columns, or unusable data:
+   - explain clearly
+   - skip it safely
+
+Return:
+- the updated training script
+- any required app code changes
+- short explanation of which dataset file(s) were used and why
+
+Do not rewrite the full project.
+Only change the necessary code.

@@ -1,19 +1,28 @@
 """
 Train a multi-class mental health classifier (TF-IDF + LogisticRegression).
 
-Input:  data/processed/combined_dataset.csv  (text, label)
-Output: models/mental_health_model.pkl        (sklearn Pipeline)
+Primary dataset : attached_assets/Combined_Data_1775671429588.csv
+                  columns: statement (text), status (label)
+                  classes: Normal, Depression, Suicidal, Anxiety,
+                           Bipolar, Stress, Personality disorder
 
-Labels: depression, anxiety, anger, happy, normal
-        (+ any additional labels present in the CSV)
+Supplementary   : attached_assets/stressed_anxious_cleaned_1775671387357.csv
+                  columns: Text, is_stressed/anxious
+                  only rows where is_stressed/anxious == 1 are used → label "stress"
+                  (adds ~3 k samples to the under-represented Stress class)
 
-The Pipeline uses LogisticRegression (multi_class='auto') so that
-predict_proba() is available for confidence scores in the UI.
+Skipped         : mental_heath_unbanlanced.csv      (subset of Combined_Data)
+                  mental_heath_feature_engineered.csv (same data + numeric features
+                  we do not need — TF-IDF learns its own features)
+
+Output          : models/mental_health_model.pkl   (sklearn Pipeline)
+
+The Pipeline wraps TF-IDF + LogisticRegression so predict_proba() is available
+for confidence scores in the Streamlit UI.
 """
 
 from __future__ import annotations
 
-import argparse
 import pickle
 import re
 from pathlib import Path
@@ -25,6 +34,29 @@ from sklearn.metrics import classification_report
 from sklearn.model_selection import train_test_split
 from sklearn.pipeline import Pipeline
 
+# ── Paths ──────────────────────────────────────────────────────────────────────
+ASSETS_DIR   = Path("attached_assets")
+PRIMARY_CSV  = ASSETS_DIR / "Combined_Data_1775671429588.csv"
+STRESS_CSV   = ASSETS_DIR / "stressed_anxious_cleaned_1775671387357.csv"
+MODEL_OUT    = Path("models") / "mental_health_model.pkl"
+
+# Minimum samples per class to be included in training
+MIN_SAMPLES = 200
+
+
+# ── Label normalisation map ────────────────────────────────────────────────────
+# Keys are raw values from the CSV (after .strip()).
+# Values are the canonical lowercase labels stored in the model.
+LABEL_MAP: dict[str, str] = {
+    "Normal":               "normal",
+    "Depression":           "depression",
+    "Suicidal":             "suicidal",
+    "Anxiety":              "anxiety",
+    "Bipolar":              "bipolar",
+    "Stress":               "stress",
+    "Personality disorder": "personality disorder",
+}
+
 
 def preprocess_text(text: str) -> str:
     text = str(text).lower()
@@ -33,98 +65,99 @@ def preprocess_text(text: str) -> str:
     return text
 
 
-def _parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(
-        description="Train a multi-class mental health classifier."
-    )
-    parser.add_argument(
-        "--data-path",
-        default="data/processed/combined_dataset.csv",
-        help="Path to the combined CSV dataset (text, label columns).",
-    )
-    parser.add_argument(
-        "--min-samples",
-        type=int,
-        default=50,
-        help="Minimum samples required per class (classes below this are dropped).",
-    )
-    return parser.parse_args()
+def load_primary() -> pd.DataFrame:
+    """Load Combined_Data.csv → normalised (text, label) frame."""
+    print(f"Loading primary dataset: {PRIMARY_CSV}")
+    df = pd.read_csv(PRIMARY_CSV, usecols=["statement", "status"])
+    df = df.rename(columns={"statement": "text", "status": "label"})
+    df["label"] = df["label"].map(LABEL_MAP)
+    before = len(df)
+    df = df.dropna(subset=["text", "label"])
+    dropped = before - len(df)
+    if dropped:
+        print(f"  Dropped {dropped} rows with unknown labels.")
+    print(f"  Loaded {len(df):,} rows from primary dataset.")
+    return df
+
+
+def load_stress_supplement() -> pd.DataFrame:
+    """Load stressed_anxious_cleaned.csv; keep only positive (stressed) rows."""
+    print(f"Loading stress supplement: {STRESS_CSV}")
+    df = pd.read_csv(STRESS_CSV)
+    col = "is_stressed/anxious"
+    if col not in df.columns or "Text" not in df.columns:
+        print("  WARNING: unexpected columns — skipping stress supplement.")
+        return pd.DataFrame(columns=["text", "label"])
+    df = df[df[col] == 1][["Text"]].copy()
+    df = df.rename(columns={"Text": "text"})
+    df["label"] = "stress"
+    print(f"  Loaded {len(df):,} stress/anxious supplement rows.")
+    return df
 
 
 def main() -> None:
-    args = _parse_args()
-    data_path = Path(args.data_path)
+    # ── Load & merge ──────────────────────────────────────────────────────────
+    primary  = load_primary()
+    stress   = load_stress_supplement()
+    df = pd.concat([primary, stress], ignore_index=True)
 
-    if not data_path.exists():
-        raise FileNotFoundError(
-            f"Dataset not found: {data_path}\n"
-            "Run first:  python scripts/build_combined_dataset.py"
-        )
-
-    print(f"Loading: {data_path}")
-    df = pd.read_csv(data_path, usecols=["text", "label"])
-    df = df.dropna(subset=["text", "label"])
+    # ── Clean ────────────────────────────────────────────────────────────────
     df["text"] = df["text"].apply(preprocess_text)
-    df = df[df["text"].str.strip().str.len() > 5]
+    df = df[df["text"].str.len() > 5].drop_duplicates(subset="text")
+    df = df.dropna(subset=["text", "label"]).reset_index(drop=True)
 
-    # Drop classes with too few samples to stratify-split.
+    # ── Drop tiny classes ────────────────────────────────────────────────────
     class_counts = df["label"].value_counts()
-    valid_classes = class_counts[class_counts >= args.min_samples].index
-    dropped = set(df["label"].unique()) - set(valid_classes)
-    if dropped:
-        print(f"WARNING: dropping under-represented classes: {sorted(dropped)}")
-    df = df[df["label"].isin(valid_classes)].reset_index(drop=True)
+    valid = class_counts[class_counts >= MIN_SAMPLES].index
+    dropped_classes = sorted(set(df["label"]) - set(valid))
+    if dropped_classes:
+        print(f"\nWARNING: dropping under-represented classes: {dropped_classes}")
+    df = df[df["label"].isin(valid)].reset_index(drop=True)
 
-    print("\nClass distribution:")
+    # ── Class distribution ───────────────────────────────────────────────────
+    print("\nFinal class distribution:")
     for label, cnt in df["label"].value_counts().items():
-        print(f"  {label:15s}: {cnt:,}")
-    print(f"  {'TOTAL':15s}: {len(df):,}\n")
+        print(f"  {label:22s}: {cnt:,}")
+    print(f"  {'TOTAL':22s}: {len(df):,}\n")
 
-    X = df["text"]
-    y = df["label"]
-
+    X, y = df["text"], df["label"]
     X_train, X_test, y_train, y_test = train_test_split(
         X, y, test_size=0.2, random_state=42, stratify=y
     )
 
-    # TF-IDF + Logistic Regression pipeline.
-    # LogisticRegression is chosen over LinearSVC because it exposes
-    # predict_proba(), which the UI uses for confidence scores.
-    pipeline: Pipeline = Pipeline(
-        steps=[
-            (
-                "tfidf",
-                TfidfVectorizer(max_features=20_000, ngram_range=(1, 2), sublinear_tf=True),
-            ),
-            (
-                "clf",
-                LogisticRegression(
-                    max_iter=3000,
-                    random_state=42,
-                    C=1.0,
-                    class_weight="balanced",
-                    solver="lbfgs",
-                ),
-            ),
-        ]
-    )
+    # ── Model ────────────────────────────────────────────────────────────────
+    pipeline: Pipeline = Pipeline([
+        ("tfidf", TfidfVectorizer(
+            max_features=30_000,
+            ngram_range=(1, 2),
+            sublinear_tf=True,
+            min_df=3,
+        )),
+        ("clf", LogisticRegression(
+            max_iter=5000,
+            random_state=42,
+            C=1.0,
+            class_weight="balanced",
+            solver="lbfgs",
+            multi_class="auto",
+        )),
+    ])
 
-    print("Training...")
+    print("Training…")
     pipeline.fit(X_train, y_train)
 
+    # ── Evaluation ───────────────────────────────────────────────────────────
     y_pred = pipeline.predict(X_test)
-    print("\nEvaluation on held-out test set:")
+    print("\nEvaluation on held-out test set (20%):")
     print(classification_report(y_test, y_pred))
 
-    out_dir = Path("models")
-    out_dir.mkdir(parents=True, exist_ok=True)
-    model_path = out_dir / "mental_health_model.pkl"
-
-    with open(model_path, "wb") as f:
+    # ── Save ─────────────────────────────────────────────────────────────────
+    MODEL_OUT.parent.mkdir(parents=True, exist_ok=True)
+    with open(MODEL_OUT, "wb") as f:
         pickle.dump(pipeline, f)
 
-    print(f"Saved model → {model_path}")
-    print(f"Classes: {list(pipeline.classes_)}")
+    print(f"Saved model → {MODEL_OUT}")
+    print(f"Classes    : {list(pipeline.classes_)}")
 
 
 if __name__ == "__main__":

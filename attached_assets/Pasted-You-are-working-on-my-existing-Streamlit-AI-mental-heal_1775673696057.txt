@@ -1,0 +1,156 @@
+You are working on my existing Streamlit AI mental health detection project.
+
+Important:
+- Do NOT rewrite the whole project
+- Only modify required parts
+- Keep current features working:
+  - multi-class mental health prediction
+  - emotion prediction
+  - audio input
+  - chatbot
+  - mood history
+- Keep project structure intact
+- Keep code modular, clean, and production-ready
+- Do not break compatibility with my saved model flow unless absolutely necessary
+
+My final app scope is only these conditions:
+- normal
+- depression
+- suicidal
+- anxiety
+- bipolar
+- stress
+- personality disorder
+
+Do NOT add:
+- PTSD
+- OCD
+- insomnia
+- burnout
+- extra emotional distress categories outside the scope above
+
+GOAL:
+Improve the app completely within this final scope by upgrading intelligence, chatbot, UI, model quality, and project polish.
+
+--------------------------------------------------
+PART 1: BETTER APP INTELLIGENCE
+--------------------------------------------------
+
+1. Add top-3 predictions if the current trained model supports probabilities.
+2. Display confidence clearly in the UI:
+   - top prediction confidence
+   - optional top-3 confidence breakdown
+3. Add safer warning logic for suicidal predictions:
+   - prominent warning message
+   - supportive crisis-oriented guidance
+   - clear statement that urgent support should be considered
+4. Improve recommendation logic for all supported conditions:
+   - normal
+   - depression
+   - suicidal
+   - anxiety
+   - bipolar
+   - stress
+   - personality disorder
+5. Keep backward compatibility if a model does not support predict_proba.
+
+--------------------------------------------------
+PART 2: BETTER CHATBOT
+--------------------------------------------------
+
+1. Improve chatbot responses so they are:
+   - more natural
+   - less repetitive
+   - more human-like
+   - condition-aware
+2. Use detected emotion + predicted mental health condition as context.
+3. Add multiple response variations and randomization to avoid repetitive output.
+4. Improve follow-up questions so the chatbot feels more conversational.
+5. Add safe and supportive handling for suicidal predictions.
+6. Keep chat history in session state and do not break existing chatbot flow.
+
+--------------------------------------------------
+PART 3: BETTER UI / UX
+--------------------------------------------------
+
+1. Improve the overall layout to look more professional.
+2. Add cleaner result cards/sections for:
+   - detected emotion
+   - detected condition
+   - confidence
+   - recommendation
+3. Add a visible disclaimer:
+   - this tool is for supportive screening only
+   - it is not a medical diagnosis
+4. Improve the mood history display:
+   - cleaner layout
+   - show condition, emotion, timestamp, confidence
+   - keep current data flow intact
+5. Improve spacing, headings, and visual clarity without removing current features.
+
+--------------------------------------------------
+PART 4: BETTER MODEL QUALITY
+--------------------------------------------------
+
+1. Improve the training pipeline without changing the final project scope.
+2. Analyze class imbalance in the current training data.
+3. Improve preprocessing if needed.
+4. Tune TF-IDF settings.
+5. Compare suitable classifiers for this text classification problem.
+6. Prefer keeping probability support if possible so the UI can show confidence.
+7. Keep the saved model compatible with the Streamlit app.
+8. Evaluate and print:
+   - accuracy
+   - precision
+   - recall
+   - F1
+   - class distribution
+   - confusion matrix if useful
+9. Test with more realistic example sentences matching social-media-style mental health text.
+
+--------------------------------------------------
+PART 5: FINAL PROJECT POLISH
+--------------------------------------------------
+
+1. Clean the repo safely:
+   - avoid unnecessary tracked cache files
+   - preserve important project files
+2. Update or create a proper .gitignore if needed.
+3. Update README/documentation so it explains:
+   - project purpose
+   - features
+   - supported conditions
+   - setup steps
+   - training steps
+   - running the Streamlit app
+   - disclaimer
+4. Keep documentation aligned with the current final scope only.
+
+--------------------------------------------------
+IMPLEMENTATION RULES
+--------------------------------------------------
+
+1. Do NOT rewrite full files unless truly necessary.
+2. Prefer targeted edits.
+3. Keep existing working features intact.
+4. Clearly explain:
+   - what changed
+   - why it changed
+   - any limitations
+5. If a model/code change requires an app change, update both safely.
+6. If some improvement is optional because of current architecture, say so clearly.
+
+--------------------------------------------------
+OUTPUT REQUIRED
+--------------------------------------------------
+
+Return:
+1. Updated code sections for app improvements
+2. Updated chatbot logic
+3. Updated training code if needed
+4. Updated README / documentation content
+5. Any .gitignore improvements
+6. Short explanation of all changes made
+
+Do not rewrite the whole project.
+Only make the necessary improvements within my final scope.

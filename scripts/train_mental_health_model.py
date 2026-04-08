@@ -30,7 +30,7 @@ from pathlib import Path
 import pandas as pd
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.linear_model import LogisticRegression
-from sklearn.metrics import classification_report
+from sklearn.metrics import classification_report, confusion_matrix
 from sklearn.model_selection import train_test_split
 from sklearn.pipeline import Pipeline
 
@@ -158,6 +158,33 @@ def main() -> None:
 
     print(f"Saved model → {MODEL_OUT}")
     print(f"Classes    : {list(pipeline.classes_)}")
+
+    # ── Confusion matrix ─────────────────────────────────────────────────────
+    print("\nConfusion matrix (rows=true, cols=predicted):")
+    cm = confusion_matrix(y_test, y_pred, labels=list(pipeline.classes_))
+    header = "  ".join(f"{c[:6]:>6}" for c in pipeline.classes_)
+    print(f"{'':22s}  {header}")
+    for label, row in zip(pipeline.classes_, cm):
+        row_str = "  ".join(f"{v:>6}" for v in row)
+        print(f"  {label:20s}  {row_str}")
+
+    # ── Realistic smoke test ─────────────────────────────────────────────────
+    print("\nSmoke test (social-media-style inputs):")
+    smoke_tests = [
+        ("normal",               "today was pretty good, had a nice walk and lunch with a friend, feeling grateful"),
+        ("depression",           "ive been feeling so empty and hopeless for weeks, nothing brings me joy anymore, i just want to sleep all day"),
+        ("suicidal",             "i cant stop thinking about ending it all, ive been making a plan and i dont see any reason to keep going"),
+        ("anxiety",              "my heart is racing and i cant breathe properly, every little thing makes me panic and i dont know why"),
+        ("bipolar",              "last week i felt on top of the world, barely slept but had so much energy, now im completely crashing"),
+        ("stress",               "work deadlines are piling up, i havent slept properly in days, i feel completely overwhelmed and burnt out"),
+        ("personality disorder", "my emotions go from zero to one hundred instantly and i push away everyone i care about then beg them to come back"),
+    ]
+    for expected, text in smoke_tests:
+        pred = pipeline.predict([text])[0]
+        proba = pipeline.predict_proba([text])[0]
+        conf = round(float(proba[list(pipeline.classes_).index(pred)]) * 100, 1)
+        status = "OK" if pred == expected else f"GOT {pred}"
+        print(f"  [{status:25s}] {expected:22s} → {pred} ({conf}%)")
 
 
 if __name__ == "__main__":

@@ -1,6 +1,49 @@
-venv/
+# Python
 __pycache__/
-*.pyc
-models/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
+*.egg
+
+# Virtual environments
+venv/
+.venv/
+env/
 .env
+
+# Secrets
+.env
+*.env.local
+
+# Models (large binary artifacts — train locally or store in DVC/cloud)
+models/
+
+# Raw data (large, re-downloadable)
 data/raw/
+
+# Processed data (reproducible via scripts)
+data/processed/
+
+# Streamlit cache
+.streamlit/cache/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDEs
+.vscode/
+.idea/
+*.iml
+
+# Jupyter
+.ipynb_checkpoints/
+*.ipynb
+
+# Logs and temp
+*.log
+/tmp/

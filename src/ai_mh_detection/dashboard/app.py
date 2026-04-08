@@ -43,17 +43,13 @@ def _load_pickle(path: Path) -> Any:
 
 # ── Condition → display name mapping ──────────────────────────────────────────
 CONDITION_DISPLAY: dict[str, str] = {
-    "depression":           "Depression",
-    "anxiety":              "Anxiety",
-    "anger":                "Anger / Distress",
-    "happy":                "Positive / Happy",
     "normal":               "No Major Concern",
-    "stress":               "Stress",
-    "bipolar":              "Bipolar-related Signs",
+    "depression":           "Depression",
     "suicidal":             "Suicidal Ideation",
+    "anxiety":              "Anxiety",
+    "bipolar":              "Bipolar-related Signs",
+    "stress":               "Stress",
     "personality disorder": "Personality-related Distress",
-    "ptsd":                 "PTSD-related Signs",
-    "ocd":                  "OCD-related Signs",
 }
 
 # Conditions that map to a "concern" (used for chatbot/history compatibility)
@@ -213,6 +209,7 @@ def _local_rule_based_response(
     emotion_label: str,
     mental_pred: int,
     chat_history: list[dict[str, str]] | None = None,
+    condition: str = "",
 ) -> str:
     """
     Local rule-based chatbot with rich, varied, context-aware responses.
@@ -236,9 +233,22 @@ def _local_rule_based_response(
             m["content"] for m in history[-6:] if m.get("role") == "assistant"
         ]
 
-        # Infer conversation state from emotion + content keywords.
-        if pred == 1:
+        # Infer conversation state — condition string takes priority over binary pred.
+        cond = condition.strip().lower()
+        if cond == "suicidal":
+            state = "suicidal"
+        elif cond == "depression":
             state = "depression"
+        elif cond == "bipolar":
+            state = "bipolar"
+        elif cond in ("anxiety",):
+            state = "anxious"
+        elif cond == "stress":
+            state = "stress"
+        elif cond == "personality disorder":
+            state = "negative"
+        elif pred == 1:
+            state = "depression"  # legacy binary fallback
         elif "anxious" in emo or "panic" in emo or any(
             k in text_norm for k in ("anxious", "anxiety", "panic", "worried", "nervous", "dread")
         ):
@@ -426,6 +436,27 @@ def _local_rule_based_response(
                 "Sometimes when we're in this place, the basics matter most: water, light, gentle movement. Have you eaten and had water today?\n\n{action}\n\n{follow_up}\n\n*If you're struggling significantly, please consider speaking with a mental health professional.*",
                 "I'm glad you're here and talking. Depression isolates — talking back to it, even like this, is a real step. What do you need most right now?\n\n{action}\n\n{follow_up}",
             ],
+            "suicidal": [
+                "I'm really glad you're here and that you're talking. What you're feeling right now is serious, and you deserve real support.\n\n"
+                "Please reach out to a crisis line — they're free, confidential, and available now: https://www.iasp.info/resources/Crisis_Centres/\n\n"
+                "Is there someone physically nearby you can be with right now?",
+                "You matter, and what you're going through matters. I want you to be safe.\n\n"
+                "The most important thing right now is to not be alone. Can you call or text someone you trust?\n\n"
+                "If you feel in immediate danger, please call emergency services or go to your nearest emergency room.",
+                "Thank you for sharing this with me — that took courage. You're not alone in this.\n\n"
+                "Crisis support is available 24/7: https://www.iasp.info/resources/Crisis_Centres/\n\n"
+                "What's happening right now that brought you to this point? I'm here to listen.",
+                "I hear you, and I'm not going anywhere. What you're feeling is real — and it can get better with the right support.\n\n"
+                "Please don't face this alone. Is there a counselor, therapist, or doctor you could contact today?\n\n"
+                "If this is an emergency, please call your local emergency number now.",
+            ],
+            "bipolar": [
+                "It sounds like things are shifting for you right now. Bipolar episodes — whether high or low — can feel very disorienting.\n\n{action}\n\n{follow_up}",
+                "Mood swings can be exhausting, especially when they feel out of your control. What phase does this feel like for you right now — more up, more down, or mixed?\n\n{action}\n\n{follow_up}",
+                "When you're in a high phase, everything feels possible but risky. When you're low, everything feels impossible. Which feels closer to right now?\n\n{action}\n\n{follow_up}",
+                "One of the most helpful things with bipolar disorder is tracking. What's your sleep been like the past few nights?\n\n{action}\n\n{follow_up}",
+                "These experiences are real and they're not your fault. Are you currently connected with a psychiatrist or mental health professional?\n\n{action}\n\n{follow_up}",
+            ],
             "neutral": [
                 "Thanks for checking in — it doesn't have to be a crisis to be worth talking about. What's on your mind?\n\n{action}\n\n{follow_up}",
                 "Sometimes 'okay' is hiding something underneath. How are you actually doing, not just on the surface?\n\n{follow_up}",
@@ -478,7 +509,7 @@ def _local_rule_based_response(
 
 
 
-def _api_chatbot_response(user_text: str, emotion_label: str, mental_pred: int) -> str:
+def _api_chatbot_response(user_text: str, emotion_label: str, mental_pred: int, condition: str = "") -> str:
     """
     Optional API response path using OpenAI-compatible Chat Completions endpoint.
     Used only when OPENAI_API_KEY is available.
@@ -487,7 +518,7 @@ def _api_chatbot_response(user_text: str, emotion_label: str, mental_pred: int) 
     if not api_key:
         return ""
 
-    fallback = _local_rule_based_response(user_text, emotion_label, mental_pred)
+    fallback = _local_rule_based_response(user_text, emotion_label, mental_pred, condition=condition)
     try:
         system_prompt = (
             "You are a supportive, empathetic, non-clinical mental health companion. "
@@ -498,7 +529,7 @@ def _api_chatbot_response(user_text: str, emotion_label: str, mental_pred: int) 
         )
         context_prompt = (
             f"Detected emotion: {emotion_label}\n"
-            f"Depression prediction flag: {int(mental_pred)}\n"
+            f"Detected mental health condition: {condition or ('concern' if mental_pred == 1 else 'no major concern')}\n"
             f"User message: {user_text or '(no message provided)'}"
         )
 
@@ -538,6 +569,7 @@ def generate_chatbot_response(
     emotion_label: str,
     mental_pred: int,
     chat_history: list[dict[str, str]] | None = None,
+    condition: str = "",
 ) -> str:
     """
     Hybrid chatbot entry point.
@@ -548,10 +580,10 @@ def generate_chatbot_response(
     """
     history = chat_history or []
     try:
-        api_reply = _api_chatbot_response(user_text, emotion_label, mental_pred)
+        api_reply = _api_chatbot_response(user_text, emotion_label, mental_pred, condition=condition)
         if api_reply and api_reply.strip():
             return api_reply.strip()
-        local_reply = _local_rule_based_response(user_text, emotion_label, mental_pred, history)
+        local_reply = _local_rule_based_response(user_text, emotion_label, mental_pred, history, condition=condition)
         return local_reply if local_reply.strip() else "I'm here with you. What feels most important to talk about right now?"
     except Exception:
         return "I'm here with you. What feels most important to talk about right now?"
@@ -563,9 +595,10 @@ def _chatbot_reply(
     mental_pred: int,
     user_text: str | None = None,
     chat_history: list[dict[str, str]] | None = None,
+    condition: str = "",
 ) -> str:
     """Compatibility wrapper used by the dashboard flow."""
-    return generate_chatbot_response(user_text or "", emotion_label, int(mental_pred), chat_history)
+    return generate_chatbot_response(user_text or "", emotion_label, int(mental_pred), chat_history, condition=condition)
 
 
 def main() -> None:
@@ -576,6 +609,10 @@ def main() -> None:
     )
     st.title(cfg.get("app", {}).get("title", "AI Mental Health Detection"))
     st.caption("Text-based emotion and mental health screening demo")
+    st.caption(
+        "Disclaimer: this tool is for informational and supportive screening purposes only. "
+        "It is not a medical diagnosis and does not replace professional mental health care."
+    )
 
     model_dir = _repo_root() / "models"
     emotion_model_path = model_dir / "emotion_model.pkl"
@@ -740,8 +777,9 @@ def main() -> None:
             condition = _condition_from_pred(mental_pred_raw)
             mental_label = CONDITION_DISPLAY.get(condition, condition.replace("_", " ").title())
 
-            # Confidence score (available when model exposes predict_proba).
+            # Confidence score + top-3 breakdown (when model exposes predict_proba).
             confidence: float | None = None
+            top_3: list[tuple[str, float]] | None = None
             try:
                 if isinstance(mental_health_model, Pipeline) and hasattr(
                     mental_health_model, "predict_proba"
@@ -750,8 +788,14 @@ def main() -> None:
                     classes = list(mental_health_model.classes_)
                     if condition in classes:
                         confidence = float(proba[classes.index(condition)])
+                    sorted_preds = sorted(zip(classes, proba), key=lambda x: -x[1])
+                    top_3 = [
+                        (CONDITION_DISPLAY.get(c, c.replace("_", " ").title()), float(p))
+                        for c, p in sorted_preds[:3]
+                    ]
             except Exception:
                 confidence = None
+                top_3 = None
 
             # Compatibility integer (1 = concern, 0 = no concern) used by
             # chatbot seeding and mood history that pre-date multi-class.
@@ -784,6 +828,18 @@ def main() -> None:
                 if confidence is not None:
                     pct = int(round(confidence * 100))
                     st.progress(confidence, text=f"Model confidence: {pct}%")
+                if top_3 is not None and len(top_3) > 1:
+                    with st.expander("Top-3 condition probabilities"):
+                        for lbl, prob in top_3:
+                            st.progress(prob, text=f"{lbl}: {int(round(prob * 100))}%")
+
+            if condition == "suicidal":
+                st.error(
+                    "**Immediate support is strongly recommended.**\n\n"
+                    "Signals of suicidal ideation were detected. This tool is not a crisis service — "
+                    "please contact a crisis helpline now.\n\n"
+                    "International resources: https://www.iasp.info/resources/Crisis_Centres/"
+                )
 
             st.subheader("Recommendations")
             st.info(_get_recommendation(condition=condition, emotion_label=emotion_label))
@@ -803,7 +859,7 @@ def main() -> None:
             )
 
             # Seed chatbot with an emotion-based assistant message
-            assistant_msg = _chatbot_reply(emotion_label, mental_pred, user_text=None)
+            assistant_msg = _chatbot_reply(emotion_label, mental_pred, user_text=None, condition=condition)
             st.session_state.chat_messages.append({"role": "assistant", "content": assistant_msg})
         except Exception as e:
             st.error(f"Prediction failed: {e}")
@@ -824,9 +880,9 @@ def main() -> None:
             with history_col1:
                 st.dataframe(df[display_cols].tail(50), use_container_width=True)
             with history_col2:
-                st.metric("Depression flagged (last runs)", depression_count)
+                st.metric("Concerns flagged (last runs)", depression_count)
                 if chart_df is not None:
-                    st.caption("Trend (0 = not depression, 1 = depression) for the last runs.")
+                    st.caption("Concern trend (0 = no concern, 1 = concern flagged) for the last runs.")
                     st.line_chart(chart_df)
 
             if st.button("Clear history", use_container_width=True):
@@ -907,6 +963,7 @@ def main() -> None:
                 mental_for_reply,
                 user_text=user_chat,
                 chat_history=st.session_state.chat_messages,
+                condition=str(last_condition) if last_condition else "",
             )
 
             st.session_state.chat_messages.append({"role": "assistant", "content": reply})

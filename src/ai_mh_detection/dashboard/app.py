@@ -661,7 +661,6 @@ def main() -> None:
     tabs = st.tabs(["Analyze", "Mood History", "Chatbot"])
 
     with tabs[0]:
-        st.subheader("Input")
         text = st.text_area(
             "Enter text (optional if you upload audio)",
             height=160,

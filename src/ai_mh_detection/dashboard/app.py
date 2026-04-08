@@ -41,71 +41,105 @@ def _load_pickle(path: Path) -> Any:
         return pickle.load(f)
 
 
-def _get_recommendation(*, mental_pred: int, emotion_label: str) -> str:
+# ── Condition → display name mapping ──────────────────────────────────────────
+CONDITION_DISPLAY: dict[str, str] = {
+    "depression": "Depression",
+    "anxiety":    "Anxiety",
+    "anger":      "Anger / Distress",
+    "happy":      "Positive / Happy",
+    "normal":     "No Major Concern",
+    # Future conditions (no training data yet — add datasets to enable)
+    "stress":     "Stress",
+    "bipolar":    "Bipolar-related Signs",
+    "ptsd":       "PTSD-related Signs",
+    "ocd":        "OCD-related Signs",
+}
+
+# Conditions that map to a "concern" (used for chatbot/history compatibility)
+CONCERN_CONDITIONS: frozenset[str] = frozenset({"depression", "anxiety", "anger", "stress"})
+
+
+def _condition_from_pred(raw: object) -> str:
+    """Normalise any model output to a lowercase condition string."""
+    try:
+        val = int(raw)
+        # Legacy binary model: 1 = depression, 0 = normal
+        return "depression" if val == 1 else "normal"
+    except (TypeError, ValueError):
+        pass
+    return str(raw).strip().lower()
+
+
+def _get_recommendation(*, condition: str, emotion_label: str) -> str:
     """
-    Return a short, practical recommendation based on:
-    - mental_pred: 1 means depression, 0 means not depression
-    - emotion_label: detected emotion string (positive/negative/neutral)
-
-    Note: This project currently predicts depression/not depression; anxiety/stress
-    are inferred from the detected emotion for recommendation purposes.
+    Return a condition-aware, actionable recommendation.
+    Works with multi-class labels (depression, anxiety, anger, happy, normal)
+    and falls back gracefully for unknown labels.
     """
-    emotion_label_norm = str(emotion_label).strip().lower()
+    cond = condition.strip().lower()
+    emo = emotion_label.strip().lower()
 
-    # Choose a "state" for recommendations.
-    if mental_pred == 1:
-        state = "depression"
-    elif "anxious" in emotion_label_norm or "panic" in emotion_label_norm:
-        state = "anxiety"
-    elif "negative" in emotion_label_norm or "sad" in emotion_label_norm or "depressed" in emotion_label_norm:
-        state = "stress"
-    else:
-        state = "normal"
-
-    # Emotion-aware, actionable suggestions (keep simple + concrete).
-    if state == "depression":
+    if cond == "depression":
         return (
-            "Try a 3-step support plan (10–20 minutes total):\n"
-            "1) Message or call one trusted person: “I’m having a rough time today—can you check in?”\n"
-            "2) Do one small body reset: water + short walk/stretch.\n"
-            "3) Write 3 lines: what I feel, what I need, what’s one tiny next step.\n"
-            "If you feel unsafe or at risk of self-harm, contact local emergency/crisis support now."
+            "**Depression detected — here is a 3-step support plan (10-20 min):**\n"
+            "1. Reach out: message or call one trusted person — even just \"I'm having a rough day.\"\n"
+            "2. Body reset: drink water, take a 5-minute walk or gentle stretch.\n"
+            "3. Write 3 lines: what I feel / what I need / one tiny next step.\n\n"
+            "If you feel unsafe or at risk of self-harm, please contact emergency or crisis support now."
         )
 
-    if state == "anxiety":
+    if cond == "anxiety":
         return (
-            "For anxiety right now (2 minutes):\n"
-            "1) Breathing: inhale 4s, exhale 6s, repeat 6 times.\n"
-            "2) Grounding: name 5 things you see, 4 you feel, 3 you hear.\n"
-            "3) One action: choose a “next 10 minutes” task (small and doable).\n"
-            "If anxiety keeps returning, consider professional support."
+            "**Anxiety detected — quick relief steps (2-3 min):**\n"
+            "1. Breathing: inhale 4 s, hold 1 s, exhale 6 s — repeat 6 times.\n"
+            "2. Grounding: name 5 things you see, 4 you feel, 3 you hear.\n"
+            "3. Narrow focus: choose one small, doable task for the next 10 minutes.\n\n"
+            "If anxiety is persistent, speaking with a professional can help."
         )
 
-    if state == "stress":
+    if cond == "anger":
         return (
-            "For stress (quick reset + clarity):\n"
-            "1) Identify the trigger: what happened right before this feeling?\n"
-            "2) Release tension: unclench jaw/shoulders, relax hands, take 5 slow breaths.\n"
-            "3) Pick one coping step: reduce stimulation, or do a 10-minute tidy/walk.\n"
-            "If symptoms worsen, reach out to someone supportive or a professional."
+            "**Anger / distress detected — a 3-step reset:**\n"
+            "1. Pause: step away from the trigger for 5-10 minutes before reacting.\n"
+            "2. Release: unclench jaw and fists, take 5 slow breaths, move your body briefly.\n"
+            "3. Name it: what triggered this — is it the situation, or something deeper?\n\n"
+            "If this pattern repeats, talking to someone supportive or a therapist can help."
         )
 
-    # Normal
-    if "positive" in emotion_label_norm or "happy" in emotion_label_norm or "joy" in emotion_label_norm:
+    if cond == "stress":
         return (
-            "Enjoy the positive momentum:\n"
-            "1) Note what helped (one specific thing).\n"
-            "2) Repeat the smallest part of it tomorrow.\n"
-            "3) Share it with someone—connection strengthens mood.\n"
-            "Keep monitoring how you feel over the next few hours."
+            "**Stress detected — clarity + recovery steps:**\n"
+            "1. Identify the trigger: what happened right before this feeling?\n"
+            "2. Release tension: unclench shoulders, relax hands, take 5 slow breaths.\n"
+            "3. Simplify: pick ONE task to complete today — drop or delay everything else.\n\n"
+            "If stress is ongoing, consider rest, delegation, or professional support."
+        )
+
+    if cond == "happy":
+        return (
+            "**Positive state detected — build on the momentum:**\n"
+            "1. Note what helped — one specific thing you can repeat tomorrow.\n"
+            "2. Share it: connection amplifies positive mood.\n"
+            "3. Use this energy: tackle one meaningful task while you feel resourced.\n\n"
+            "Keep monitoring — mood can shift. Regular check-ins help you stay ahead."
+        )
+
+    # normal / unknown
+    if any(k in emo for k in ("positive", "happy", "joy")):
+        return (
+            "**No major concern — keep up the good work:**\n"
+            "1. Maintain your routine: sleep, food, movement, connection.\n"
+            "2. Note what's working and do more of it.\n"
+            "3. Check in with yourself regularly — early awareness prevents bigger dips."
         )
 
     return (
-        "Keep things steady:\n"
-        "1) Keep a basic routine (sleep, food, water).\n"
-        "2) Do one low-effort check-in: “How am I feeling in my body?”\n"
-        "3) If things shift downward, seek support early."
+        "**Things look steady — maintain your wellbeing:**\n"
+        "1. Keep a basic routine: consistent sleep, meals, and movement.\n"
+        "2. Do one low-effort check-in: \"How am I feeling in my body right now?\"\n"
+        "3. If things shift downward, reach out early — support works best proactively."
     )
+
 
 
 def _normalize_emotion_label(emotion_pred: Any, *, processed_text: str | None = None) -> str:
@@ -555,6 +589,8 @@ def main() -> None:
         st.session_state.last_emotion = None
     if "last_mental_pred" not in st.session_state:
         st.session_state.last_mental_pred = None
+    if "last_condition" not in st.session_state:
+        st.session_state.last_condition = None
 
     tabs = st.tabs(["Analyze", "Mood History", "Chatbot"])
 
@@ -669,14 +705,29 @@ def main() -> None:
                 mental_features = mental_vectorizer.transform([processed_text])
                 mental_pred_raw = mental_health_model.predict(mental_features)[0]
 
+            # Parse the model output: the new multi-class model returns a string
+            # label directly. The legacy binary model returns 0/1 — handled by
+            # _condition_from_pred() for backward compatibility.
+            condition = _condition_from_pred(mental_pred_raw)
+            mental_label = CONDITION_DISPLAY.get(condition, condition.replace("_", " ").title())
+
+            # Confidence score (available when model exposes predict_proba).
+            confidence: float | None = None
             try:
-                mental_pred = int(mental_pred_raw)
-                mental_label = "Depression" if mental_pred == 1 else "Not Depression"
-            except (TypeError, ValueError):
-                mental_label = (
-                    "Depression" if str(mental_pred_raw).lower() in {"1", "true", "depression"} else "Not Depression"
-                )
-                mental_pred = 1 if mental_label == "Depression" else 0
+                if isinstance(mental_health_model, Pipeline) and hasattr(
+                    mental_health_model, "predict_proba"
+                ):
+                    proba = mental_health_model.predict_proba([processed_text])[0]
+                    classes = list(mental_health_model.classes_)
+                    if condition in classes:
+                        confidence = float(proba[classes.index(condition)])
+            except Exception:
+                confidence = None
+
+            # Compatibility integer (1 = concern, 0 = no concern) used by
+            # chatbot seeding and mood history that pre-date multi-class.
+            mental_pred = 1 if condition in CONCERN_CONDITIONS else 0
+
 
             st.success("Analysis complete.")
 
@@ -685,32 +736,40 @@ def main() -> None:
 
             with results_col1:
                 st.markdown("#### Detected Emotion")
-                if "positive" in emotion_label.lower():
-                    st.success(emotion_label)
-                elif "negative" in emotion_label.lower():
-                    st.warning(emotion_label)
+                if "positive" in emotion_label.lower() or emotion_label.lower() == "happy":
+                    st.success(emotion_label.capitalize())
+                elif any(k in emotion_label.lower() for k in ("negative", "angry", "anxious", "sad")):
+                    st.warning(emotion_label.capitalize())
                 else:
-                    st.info(emotion_label)
+                    st.info(emotion_label.capitalize())
 
             with results_col2:
-                st.markdown("#### Mental Health Prediction")
-                if mental_pred == 1:
-                    st.error(mental_label)
+                st.markdown("#### Detected Condition")
+                concern_conditions_display = {"depression", "anxiety", "anger", "stress"}
+                if condition in concern_conditions_display:
+                    st.error(f"{mental_label}")
+                elif condition == "happy":
+                    st.success(f"{mental_label}")
                 else:
-                    st.success(mental_label)
+                    st.info(f"{mental_label}")
+                if confidence is not None:
+                    pct = int(round(confidence * 100))
+                    st.progress(confidence, text=f"Model confidence: {pct}%")
 
             st.subheader("Recommendations")
-            st.info(_get_recommendation(mental_pred=mental_pred, emotion_label=emotion_label))
+            st.info(_get_recommendation(condition=condition, emotion_label=emotion_label))
 
             # Update session state
             st.session_state.last_emotion = emotion_label
             st.session_state.last_mental_pred = mental_pred
+            st.session_state.last_condition = condition
             st.session_state.mood_history.append(
                 {
                     "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
                     "emotion": emotion_label,
+                    "condition": mental_label,
                     "mental_pred": int(mental_pred),
-                    "mental_label": "Depression" if mental_pred == 1 else "Not Depression",
+                    "confidence": f"{int(round(confidence * 100))}%" if confidence is not None else "N/A",
                 }
             )
 
@@ -728,7 +787,7 @@ def main() -> None:
         else:
             df = pd.DataFrame(history)
             # Keep display tidy and predictable.
-            display_cols = [c for c in ["timestamp", "emotion", "mental_label", "mental_pred"] if c in df.columns]
+            display_cols = [c for c in ["timestamp", "emotion", "condition", "confidence", "mental_pred"] if c in df.columns]
             chart_df = df["mental_pred"].tail(50).reset_index(drop=True) if "mental_pred" in df.columns else None
             depression_count = int(chart_df.sum()) if chart_df is not None else 0
 
@@ -749,24 +808,30 @@ def main() -> None:
         # ── Context banner ──────────────────────────────────────────────────────
         last_emotion = st.session_state.last_emotion
         last_mental_pred = st.session_state.last_mental_pred
+        last_condition = st.session_state.get("last_condition")
         has_context = last_emotion is not None and last_mental_pred is not None
 
         if has_context:
             emotion_display = str(last_emotion).capitalize()
-            mental_display = "Depression detected" if last_mental_pred == 1 else "No depression detected"
+            condition_display = CONDITION_DISPLAY.get(
+                str(last_condition), str(last_condition).replace("_", " ").title()
+            ) if last_condition else ("Concern detected" if last_mental_pred == 1 else "No major concern")
             ctx_col1, ctx_col2, ctx_col3 = st.columns([2, 2, 1])
             with ctx_col1:
-                if "positive" in str(last_emotion).lower():
+                if "positive" in str(last_emotion).lower() or last_emotion == "happy":
                     st.success(f"Emotion: {emotion_display}")
-                elif any(k in str(last_emotion).lower() for k in ("negative", "anxious", "sad")):
+                elif any(k in str(last_emotion).lower() for k in ("negative", "anxious", "sad", "anger")):
                     st.warning(f"Emotion: {emotion_display}")
                 else:
                     st.info(f"Emotion: {emotion_display}")
             with ctx_col2:
-                if last_mental_pred == 1:
-                    st.error(f"Status: {mental_display}")
+                concern_set = {"depression", "anxiety", "anger", "stress"}
+                if last_condition in concern_set:
+                    st.error(f"Condition: {condition_display}")
+                elif last_condition == "happy":
+                    st.success(f"Condition: {condition_display}")
                 else:
-                    st.success(f"Status: {mental_display}")
+                    st.info(f"Condition: {condition_display}")
             with ctx_col3:
                 if st.button("Clear chat", use_container_width=True):
                     st.session_state.chat_messages = []

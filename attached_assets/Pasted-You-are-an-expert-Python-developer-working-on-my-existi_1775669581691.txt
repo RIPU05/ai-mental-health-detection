@@ -1,0 +1,132 @@
+You are an expert Python developer working on my existing Streamlit AI mental health detection project.
+
+Important:
+- Do NOT rewrite the entire project
+- Only modify required parts
+- Keep current UI, prediction pipeline, and structure intact
+- Keep code modular, clean, and production-ready
+- Do not break existing features (audio input, chatbot, mood history)
+
+--------------------------------------------------
+
+GOAL:
+Upgrade my app from depression-only detection to a multi-condition mental health detection system.
+
+The app should detect:
+- depression
+- anxiety
+- stress
+- bipolar-related signs
+- PTSD-related signs
+- OCD-related signs
+- emotional distress
+- normal / no major issue
+
+--------------------------------------------------
+
+PART 1: DATASET EXTENSION & MERGING
+
+I am using multiple datasets:
+- depression dataset
+- multi-class mental health dataset
+- stress/anxiety dataset
+- emotion dataset
+
+Tasks:
+
+1. Load all datasets from project folders.
+
+2. Standardize all datasets to this format:
+   - column: text
+   - column: label
+
+3. Create unified label mapping:
+   - depression → depression
+   - anxiety → anxiety
+   - stress → stress
+   - suicidal / suicide → suicidal
+   - sadness → depression
+   - fear / nervous → anxiety
+   - anger → anger
+   - joy / happy → happy
+   - neutral → normal
+
+4. Handle conflicts:
+   - Convert numeric labels (0/1) into text labels
+   - Normalize inconsistent naming across datasets
+
+5. Merge datasets:
+   df = pd.concat([...])
+
+6. Clean dataset:
+   - remove duplicates
+   - remove empty/null rows
+
+7. Show label distribution (counts per class)
+
+8. Save final dataset:
+   data/processed/combined_dataset.csv
+
+9. Clearly mention if any dataset is incompatible or missing required labels.
+
+--------------------------------------------------
+
+PART 2: MODEL UPGRADE (MULTI-CLASS)
+
+1. Refactor training pipeline:
+   - change binary classification → multi-class classification
+   - use combined_dataset.csv
+
+2. Ensure model predicts:
+   - label names (not 0/1)
+
+3. If dataset is insufficient:
+   - clearly mark in code where better dataset is required
+
+--------------------------------------------------
+
+PART 3: STREAMLIT APP UPDATE
+
+1. Update prediction system:
+   - return condition name instead of binary result
+
+2. Update UI to display:
+   - detected mental health condition
+   - clear label name
+   - confidence (if possible)
+
+3. Add label mapping function:
+   - convert model output → readable condition
+
+4. Add recommendation system:
+   - depression → support, routine, help
+   - anxiety → calming, breathing
+   - stress → rest, time management
+   - happy → positive reinforcement
+   - normal → maintain wellness
+
+5. Keep emotion prediction:
+   - use it to enhance recommendations
+
+--------------------------------------------------
+
+PART 4: SAFETY & STRUCTURE
+
+- Do NOT remove existing features
+- Do NOT rewrite full files
+- Only return updated/new code sections
+- Clearly explain:
+   - what was changed
+   - why it was changed
+   - where dataset limitations exist
+
+--------------------------------------------------
+
+OUTPUT REQUIRED:
+
+1. Dataset processing code
+2. Label mapping dictionary
+3. Updated training logic (multi-class)
+4. Updated Streamlit prediction + UI parts
+5. Recommendation logic
+6. Short explanation of changes

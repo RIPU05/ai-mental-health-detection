@@ -1,0 +1,120 @@
+You are helping me update my B.Tech major project report.
+
+Files to compare:
+1. "Report format & general guidelines.doc"
+2. "major_project_report f.pdf"
+
+Task:
+Compare the required report format/guidelines with my current major project report, then edit my report so it matches both:
+- the official format and sequence
+- my CURRENT actual project implementation
+
+Important:
+- Do NOT rewrite randomly
+- Keep the report in formal academic English
+- Keep it suitable for a Poornima University major project report
+- Preserve names, guide details, certificates, declaration, and institution details unless formatting correction is needed
+- Fix structure, headings, sequence, formatting content, outdated project description, and technical sections
+- Remove outdated statements that no longer match my actual project
+- Do not add fake claims
+
+My CURRENT actual project is:
+- AI-Based Mental Health Detection System
+- multi-class mental health detection
+- supported conditions:
+  normal, depression, suicidal, anxiety, bipolar, stress, personality disorder
+- NLP-based text preprocessing
+- TF-IDF feature extraction
+- Logistic Regression model
+- Streamlit web app
+- emotion detection
+- chatbot support
+- audio input / speech-to-text
+- mood history tracking
+- top-3 predictions with confidence
+- recommendation system
+- suicidal safety warning
+- confusion matrix and model evaluation
+- cleaned repo, README, .gitignore
+
+What you must do:
+
+PART 1 — Compare format
+1. Read the "Report format & general guidelines" file carefully.
+2. Check whether my current report follows:
+   - required page order
+   - chapter structure
+   - abstract length/style
+   - bibliography style
+   - headings/subheadings format
+   - required sections like acknowledgement, abstract, table of contents, list of figures, conclusion, references, appendices if needed
+3. Identify all mismatches.
+
+PART 2 — Compare content
+1. Read my current report fully.
+2. Find all outdated content that no longer matches my current project, especially:
+   - binary-only detection
+   - no GUI / no real-time system
+   - limited features
+   - old dataset/model description
+   - missing Streamlit/chatbot/audio/history/recommendation/top-3 prediction details
+3. Replace outdated content with accurate current project details.
+
+PART 3 — Edit the report
+Update the report so it reflects my CURRENT project correctly:
+- Title stays the same unless format requires adjustment
+- Abstract should reflect the current full system
+- Introduction should reflect multi-condition detection and the actual need/problem
+- Problem Statement should match the real system goal
+- Aims and Objectives should match the current implementation
+- Features should include:
+  - multi-condition prediction
+  - Streamlit interface
+  - chatbot
+  - speech-to-text input
+  - mood history
+  - recommendations
+  - top-3 predictions with confidence
+  - suicidal warning
+- Project Plan / Workflow should reflect the actual pipeline
+- Working of Project should explain:
+  - data collection / dataset usage
+  - preprocessing
+  - TF-IDF
+  - Logistic Regression
+  - model training
+  - evaluation
+  - Streamlit deployment flow
+  - emotion/chatbot/audio/history modules
+- Conclusion should reflect what has actually been achieved
+- Future Work should only include realistic next steps, not features already completed
+- References/Bibliography should be reformatted according to the guideline file
+
+PART 4 — Keep final scope accurate
+My final project scope includes ONLY these condition classes:
+- normal
+- depression
+- suicidal
+- anxiety
+- bipolar
+- stress
+- personality disorder
+
+Do NOT add:
+- PTSD
+- OCD
+- insomnia
+- burnout
+- extra unsupported conditions
+
+PART 5 — Output format
+Return:
+1. A list of format issues found
+2. A list of content issues found
+3. The fully revised report text section by section
+4. Clearly marked replacement text for each chapter
+5. Any bibliography/reference corrections needed
+6. Keep the final report ready to paste into Word
+
+Extra instruction:
+If the guideline file and my current report conflict, follow the official guideline format first, then align the content with my actual current project.
